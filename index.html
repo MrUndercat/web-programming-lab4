@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Прогноз погоды</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="alternate icon" href="favicon.ico">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Прогноз погоды</h1>
+            <button id="refreshBtn" class="refresh-btn" aria-label="Обновить данные">
+                <span class="refresh-icon">↻</span>
+                Обновить
+            </button>
+        </header>
+
+        <div id="loadingState" class="loading-state hidden">
+            <div class="spinner"></div>
+            <p>Загрузка данных о погоде...</p>
+        </div>
+
+        <div id="errorState" class="error-state hidden">
+            <p class="error-message"></p>
+        </div>
+
+        <div id="weatherContainer" class="weather-container">
+            <!-- Weather cards will be inserted here -->
+        </div>
+
+        <div class="add-city-section">
+            <button id="addCityBtn" class="add-city-btn">+ Добавить город</button>
+        </div>
+    </div>
+
+    <!-- Modal for adding city -->
+    <div id="cityModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Добавить город</h2>
+                <button id="closeModal" class="close-btn" aria-label="Закрыть">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        id="cityInput" 
+                        placeholder="Введите название города"
+                        autocomplete="off"
+                    >
+                    <div id="cityDropdown" class="dropdown hidden"></div>
+                    <div id="cityError" class="error-text hidden"></div>
+                </div>
+                <button id="submitCityBtn" class="submit-btn">Добавить</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
