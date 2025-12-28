@@ -20,23 +20,13 @@
 - HTML5
 - CSS3 (чистый CSS, без фреймворков)
 - JavaScript (ES6+, без фреймворков)
-- OpenWeatherMap API
+- Open-Meteo API (бесплатный, без регистрации и API ключа)
 
 ## Установка и настройка
 
 1. Клонируйте репозиторий или скачайте файлы проекта
 
-2. Получите API ключ от OpenWeatherMap:
-   - Зарегистрируйтесь на [OpenWeatherMap](https://openweathermap.org/api)
-   - Перейдите в раздел API Keys
-   - Создайте бесплатный API ключ (Free tier)
-
-3. Откройте файл `script.js` и замените `YOUR_API_KEY_HERE` на ваш API ключ:
-   ```javascript
-   const API_KEY = 'ваш_api_ключ_здесь';
-   ```
-
-4. Откройте `index.html` в браузере или используйте локальный сервер:
+2. Откройте `index.html` в браузере или используйте локальный сервер:
    ```bash
    # Используя Python
    python -m http.server 8000

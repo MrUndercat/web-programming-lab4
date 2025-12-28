@@ -1,7 +1,6 @@
-// API ключ для OpenWeatherMap (нужно заменить на свой)
-const API_KEY = 'YOUR_API_KEY_HERE';
-const WEATHER_API_URL = 'https://api.openweathermap.org/data/2.5';
-const GEO_API_URL = 'https://api.openweathermap.org/geo/1.0';
+// Open-Meteo API (бесплатный, без API ключа)
+const WEATHER_API_URL = 'https://api.open-meteo.com/v1/forecast';
+const GEO_API_URL = 'https://geocoding-api.open-meteo.com/v1/search';
 
 // Состояние приложения
 const appState = {
@@ -104,28 +103,23 @@ function requestGeolocation() {
 
 // Получение погоды по координатам
 async function getWeatherByCoords(lat, lon) {
-    const currentUrl = `${WEATHER_API_URL}/weather?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric&lang=ru`;
-    const forecastUrl = `${WEATHER_API_URL}/forecast?lat=${lat}&lon=${lon}&appid=${API_KEY}&units=metric&lang=ru`;
+    const url = `${WEATHER_API_URL}?latitude=${lat}&longitude=${lon}&current_weather=true&daily=weathercode,temperature_2m_max,temperature_2m_min,windspeed_10m_max,precipitation_sum&timezone=auto&forecast_days=3`;
     
-    const [currentResponse, forecastResponse] = await Promise.all([
-        fetch(currentUrl),
-        fetch(forecastUrl)
-    ]);
+    const response = await fetch(url);
     
-    if (!currentResponse.ok || !forecastResponse.ok) {
+    if (!response.ok) {
         throw new Error('Ошибка API');
     }
     
-    const current = await currentResponse.json();
-    const forecast = await forecastResponse.json();
+    const data = await response.json();
     
-    return { current, forecast };
+    return data;
 }
 
 // Получение погоды по названию города
 async function getWeatherByCity(cityName) {
     // Сначала получаем координаты города
-    const geoUrl = `${GEO_API_URL}/direct?q=${encodeURIComponent(cityName)}&limit=1&appid=${API_KEY}`;
+    const geoUrl = `${GEO_API_URL}?name=${encodeURIComponent(cityName)}&count=1&language=ru`;
     const geoResponse = await fetch(geoUrl);
     
     if (!geoResponse.ok) {
@@ -134,12 +128,12 @@ async function getWeatherByCity(cityName) {
     
     const geoData = await geoResponse.json();
     
-    if (!geoData || geoData.length === 0) {
+    if (!geoData || !geoData.results || geoData.results.length === 0) {
         throw new Error('Город не найден');
     }
     
-    const { lat, lon } = geoData[0];
-    return await getWeatherByCoords(lat, lon);
+    const { latitude, longitude } = geoData.results[0];
+    return await getWeatherByCoords(latitude, longitude);
 }
 
 // Загрузка погоды для всех сохраненных городов
@@ -204,9 +198,45 @@ async function loadAllWeather() {
     }
 }
 
+// Преобразование weathercode в описание и иконку
+function getWeatherInfo(weathercode) {
+    const weatherCodes = {
+        0: { desc: 'Ясно', icon: '☀️' },
+        1: { desc: 'Преимущественно ясно', icon: '🌤️' },
+        2: { desc: 'Переменная облачность', icon: '⛅' },
+        3: { desc: 'Пасмурно', icon: '☁️' },
+        45: { desc: 'Туман', icon: '🌫️' },
+        48: { desc: 'Иней', icon: '🌫️' },
+        51: { desc: 'Легкая морось', icon: '🌦️' },
+        53: { desc: 'Умеренная морось', icon: '🌦️' },
+        55: { desc: 'Сильная морось', icon: '🌦️' },
+        56: { desc: 'Легкая ледяная морось', icon: '🌨️' },
+        57: { desc: 'Сильная ледяная морось', icon: '🌨️' },
+        61: { desc: 'Небольшой дождь', icon: '🌧️' },
+        63: { desc: 'Умеренный дождь', icon: '🌧️' },
+        65: { desc: 'Сильный дождь', icon: '🌧️' },
+        66: { desc: 'Легкий ледяной дождь', icon: '🌨️' },
+        67: { desc: 'Сильный ледяной дождь', icon: '🌨️' },
+        71: { desc: 'Небольшой снег', icon: '❄️' },
+        73: { desc: 'Умеренный снег', icon: '❄️' },
+        75: { desc: 'Сильный снег', icon: '❄️' },
+        77: { desc: 'Снежные зерна', icon: '❄️' },
+        80: { desc: 'Небольшой ливень', icon: '🌦️' },
+        81: { desc: 'Умеренный ливень', icon: '🌦️' },
+        82: { desc: 'Сильный ливень', icon: '🌦️' },
+        85: { desc: 'Небольшой снегопад', icon: '🌨️' },
+        86: { desc: 'Сильный снегопад', icon: '🌨️' },
+        95: { desc: 'Гроза', icon: '⛈️' },
+        96: { desc: 'Гроза с градом', icon: '⛈️' },
+        99: { desc: 'Гроза с сильным градом', icon: '⛈️' }
+    };
+    
+    return weatherCodes[weathercode] || { desc: 'Неизвестно', icon: '🌤️' };
+}
+
 // Отображение карточки погоды
 function displayWeather(weatherData, cityName, isCurrentLocation) {
-    const { current, forecast } = weatherData;
+    const { current_weather, daily } = weatherData;
     
     // Создание элементов без innerHTML
     const card = document.createElement('div');
@@ -240,16 +270,19 @@ function displayWeather(weatherData, cityName, isCurrentLocation) {
     
     const temp = document.createElement('div');
     temp.className = 'temperature';
-    temp.textContent = `${Math.round(current.main.temp)}°C`;
+    temp.textContent = `${Math.round(current_weather.temperature)}°C`;
     
+    const weatherInfo = getWeatherInfo(current_weather.weathercode);
     const description = document.createElement('div');
     description.className = 'weather-description';
-    description.textContent = current.weather[0].description;
+    description.textContent = weatherInfo.desc;
     
-    const icon = document.createElement('img');
+    const icon = document.createElement('div');
     icon.className = 'weather-icon';
-    icon.src = `https://openweathermap.org/img/wn/${current.weather[0].icon}@2x.png`;
-    icon.alt = current.weather[0].description;
+    icon.style.fontSize = '80px';
+    icon.style.lineHeight = '80px';
+    icon.textContent = weatherInfo.icon;
+    icon.setAttribute('aria-label', weatherInfo.desc);
     
     currentWeather.appendChild(temp);
     currentWeather.appendChild(icon);
@@ -259,15 +292,15 @@ function displayWeather(weatherData, cityName, isCurrentLocation) {
     const details = document.createElement('div');
     details.className = 'weather-details';
     
-    const feelsLike = createDetailItem('Ощущается', `${Math.round(current.main.feels_like)}°C`);
-    const humidity = createDetailItem('Влажность', `${current.main.humidity}%`);
-    const pressure = createDetailItem('Давление', `${Math.round(current.main.pressure * 0.75)} мм рт.ст.`);
-    const windSpeed = createDetailItem('Ветер', `${Math.round(current.wind.speed)} м/с`);
+    const windSpeed = createDetailItem('Ветер', `${Math.round(current_weather.windspeed)} км/ч`);
+    const maxTemp = createDetailItem('Макс. сегодня', `${Math.round(daily.temperature_2m_max[0])}°C`);
+    const minTemp = createDetailItem('Мин. сегодня', `${Math.round(daily.temperature_2m_min[0])}°C`);
+    const precipitation = createDetailItem('Осадки', `${daily.precipitation_sum[0] || 0} мм`);
     
-    details.appendChild(feelsLike);
-    details.appendChild(humidity);
-    details.appendChild(pressure);
     details.appendChild(windSpeed);
+    details.appendChild(maxTemp);
+    details.appendChild(minTemp);
+    details.appendChild(precipitation);
     
     // Прогноз на следующие дни
     const forecastSection = document.createElement('div');
@@ -280,13 +313,16 @@ function displayWeather(weatherData, cityName, isCurrentLocation) {
     const forecastDays = document.createElement('div');
     forecastDays.className = 'forecast-days';
     
-    // Группируем прогноз по дням
-    const dailyForecast = groupForecastByDay(forecast.list);
-    
-    dailyForecast.slice(0, 3).forEach(day => {
-        const dayElement = createForecastDay(day);
+    // Создаем прогноз на следующие дни
+    for (let i = 0; i < 3; i++) {
+        const dayData = {
+            date: new Date(daily.time[i]),
+            temp: Math.round((daily.temperature_2m_max[i] + daily.temperature_2m_min[i]) / 2),
+            weathercode: daily.weathercode[i]
+        };
+        const dayElement = createForecastDay(dayData);
         forecastDays.appendChild(dayElement);
-    });
+    }
     
     forecastSection.appendChild(forecastTitle);
     forecastSection.appendChild(forecastDays);
@@ -319,36 +355,6 @@ function createDetailItem(label, value) {
     return item;
 }
 
-// Группировка прогноза по дням
-function groupForecastByDay(forecastList) {
-    const days = {};
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    forecastList.forEach(item => {
-        const date = new Date(item.dt * 1000);
-        const dayKey = date.toDateString();
-        
-        if (!days[dayKey]) {
-            days[dayKey] = {
-                date: new Date(date),
-                items: []
-            };
-        }
-        
-        days[dayKey].items.push(item);
-    });
-    
-    // Преобразуем в массив и сортируем
-    return Object.values(days)
-        .sort((a, b) => a.date - b.date)
-        .map(day => ({
-            date: day.date,
-            temp: Math.round(day.items[0].main.temp),
-            icon: day.items[0].weather[0].icon,
-            description: day.items[0].weather[0].description
-        }));
-}
 
 // Создание элемента прогноза на день
 function createForecastDay(day) {
@@ -362,23 +368,26 @@ function createForecastDay(day) {
     dayName.className = 'forecast-day-name';
     
     const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dayDateObj = new Date(day.date);
+    dayDateObj.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dayAfterTomorrow = new Date(today);
     dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
     
-    if (day.date.toDateString() === today.toDateString()) {
+    if (dayDateObj.getTime() === today.getTime()) {
         dayName.textContent = 'Сегодня';
-    } else if (day.date.toDateString() === tomorrow.toDateString()) {
+    } else if (dayDateObj.getTime() === tomorrow.getTime()) {
         dayName.textContent = 'Завтра';
     } else {
         const days = ['Воскресенье', 'Понедельник', 'Вторник', 'Среда', 'Четверг', 'Пятница', 'Суббота'];
-        dayName.textContent = days[day.date.getDay()];
+        dayName.textContent = days[dayDateObj.getDay()];
     }
     
     const dayDate = document.createElement('div');
     dayDate.className = 'forecast-day-date';
-    dayDate.textContent = day.date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+    dayDate.textContent = dayDateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
     
     info.appendChild(dayName);
     info.appendChild(dayDate);
@@ -390,10 +399,13 @@ function createForecastDay(day) {
     tempValue.className = 'forecast-temp';
     tempValue.textContent = `${day.temp}°C`;
     
-    const icon = document.createElement('img');
+    const weatherInfo = getWeatherInfo(day.weathercode);
+    const icon = document.createElement('div');
     icon.className = 'forecast-icon';
-    icon.src = `https://openweathermap.org/img/wn/${day.icon}@2x.png`;
-    icon.alt = day.description;
+    icon.style.fontSize = '40px';
+    icon.style.lineHeight = '40px';
+    icon.textContent = weatherInfo.icon;
+    icon.setAttribute('aria-label', weatherInfo.desc);
     
     temp.appendChild(tempValue);
     temp.appendChild(icon);
